@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: var(--font-tajawal), system-ui, -apple-system, sans-serif;
+  
+  /* Wusha Brand Colors */
+  --color-wusha-ivory: #FFF8ED;
+  --color-wusha-pale-gold: #E0C99A;
+  --color-wusha-muted-gold: #CEAE7F;
+  --color-wusha-ink: #4B3434;
+  --color-wusha-cotton: #F5ECDD;
+  --color-wusha-cacao: #2A1A19;
+  --color-wusha-stone: #817E86;
+  --color-wusha-forest: #1E5C42;
+
+  /* Additional Gradients & Shadows for Depth */
+  --shadow-soft-ambient: 0 8px 30px rgba(42, 26, 25, 0.04), 0 4px 10px rgba(42, 26, 25, 0.02);
+  --shadow-gold-glow: 0 8px 24px rgba(206, 174, 127, 0.15);
+}
+
+body {
+  font-family: var(--font-tajawal), system-ui, -apple-system, sans-serif;
+  background-color: var(--color-wusha-ivory);
+  color: var(--color-wusha-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Wusha Premium Card (Double Bezel Effect) */
+.wusha-card {
+  background-color: #ffffff;
+  border: 1px solid var(--color-wusha-cotton);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft-ambient);
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.wusha-card::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 236, 221, 0.4); /* Inner subtle border */
+  pointer-events: none;
+}
+
+.wusha-card:hover {
+  border-color: var(--color-wusha-pale-gold);
+  box-shadow: var(--shadow-gold-glow);
+  transform: translateY(-2px);
+}
+
+/* Base Notion Card (For smaller widgets or backwards compatibility) */
+.notion-card {
+  background-color: #ffffff;
+  border: 1px solid var(--color-wusha-cotton);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(42, 26, 25, 0.03);
+  transition: all 0.2s ease;
+}
+
+.notion-card:hover {
+  border-color: var(--color-wusha-pale-gold);
+}
+
+/* Dark Heritage Sidebar Items */
+.notion-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #B4B1B8; /* Lighter stone for dark bg */
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.notion-sidebar-item:hover {
+  background-color: rgba(255, 248, 237, 0.05); /* Ivory with low opacity */
+  color: var(--color-wusha-ivory);
+}
+
+.notion-sidebar-item.active {
+  background-color: rgba(224, 201, 154, 0.1); /* Pale gold subtle bg */
+  border-color: rgba(224, 201, 154, 0.2);
+  font-weight: 700;
+  color: var(--color-wusha-pale-gold);
+}
+
+/* Quiet Controls - Buttons */
+.wusha-btn-primary {
+  background-color: var(--color-wusha-muted-gold);
+  color: var(--color-wusha-cacao);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 4px 14px rgba(206, 174, 127, 0.2);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wusha-btn-primary:hover {
+  background-color: #C19D68; /* Slightly darker gold */
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(206, 174, 127, 0.3);
+}
+
+.wusha-btn-primary:active {
+  transform: translateY(0);
+}
+
+.wusha-btn-outline {
+  background-color: transparent;
+  border: 1px solid var(--color-wusha-pale-gold);
+  color: var(--color-wusha-ink);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.wusha-btn-outline:hover {
+  background-color: var(--color-wusha-ivory);
+  border-color: var(--color-wusha-muted-gold);
+}
+
+/* Input Fields - Quiet Controls */
+.wusha-input {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: var(--color-wusha-ivory);
+  border: 1px solid var(--color-wusha-cotton);
+  border-radius: 8px;
+  color: var(--color-wusha-ink);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.wusha-input:focus {
+  outline: none;
+  border-color: var(--color-wusha-pale-gold);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(224, 201, 154, 0.15);
+}
+
+/* Motion / Animations */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeSlideUp 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-delay-100 { animation-delay: 100ms; }
+.animate-delay-200 { animation-delay: 200ms; }
+.animate-delay-300 { animation-delay: 300ms; }
+
+/* Beautiful custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-wusha-cotton);
+  border-radius: 8px;
+  border: 2px solid var(--color-wusha-ivory); /* adds space around thumb */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-wusha-pale-gold);
+}

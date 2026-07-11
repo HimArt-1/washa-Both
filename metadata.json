@@ -1,0 +1,6 @@
+{
+  "name": "وشى للأزياء — إدارة البوث",
+  "description": "نظام Notion احترافي متكامل لبراند وشى للأزياء لإدارة مبيعات ومخزون ومصاريف وأعمال بوث المعارض مع وضع الكاشير السريع وإغلاق اليوم والمحاسبة والمطابقة المالية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
