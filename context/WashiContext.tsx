@@ -3,16 +3,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Order, Sale, Expense, InventoryMovement, DailyReport, DailyTask, SystemSettings } from '../lib/types';
-import {
-  INITIAL_PRODUCTS,
-  INITIAL_ORDERS,
-  INITIAL_SALES,
-  INITIAL_EXPENSES,
-  INITIAL_MOVEMENTS,
-  INITIAL_REPORTS,
-  INITIAL_TASKS,
-  DEFAULT_SETTINGS
-} from '../lib/seed';
+import { supabase, toCamelCaseObj, toSnakeCaseObj } from '../lib/supabase';
+import { DEFAULT_SETTINGS } from '../lib/seed';
 
 interface WashiContextType {
   products: Product[];
@@ -34,7 +26,7 @@ interface WashiContextType {
   addProduct: (product: Omit<Product, 'id'>) => void;
   editProduct: (id: string, product: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
-  adjustProductStock: (id: string, amount: number, type: 'إضافة مخزون' | 'مرتجع' | 'تلف' | 'تعديل يدوي', notes: string, handler: string) => void;
+  adjustProductStock: (id: string, amount: number, type: 'إضافة مخزون' | 'بيع' | 'مرتجع' | 'تلف' | 'تعديل يدوي', notes: string, handler: string) => void;
 
   // Orders
   addOrder: (order: Omit<Order, 'id' | 'orderDate' | 'addedToSales' | 'totalAmount'>) => Order;
@@ -85,151 +77,130 @@ export function WashiProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<'admin' | 'cashier' | null>(null);
 
-  // Load from localStorage on mount
+  // Helper to generate UUIDs locally for optimistic updates
+  const generateUUID = () => {
+    return crypto.randomUUID();
+  };
+
+  // Initial Load from Supabase
   useEffect(() => {
-    try {
-      const storedProducts = localStorage.getItem('washi_products');
-      const storedOrders = localStorage.getItem('washi_orders');
-      const storedSales = localStorage.getItem('washi_sales');
-      const storedExpenses = localStorage.getItem('washi_expenses');
-      const storedMovements = localStorage.getItem('washi_movements');
-      const storedReports = localStorage.getItem('washi_reports');
-      const storedTasks = localStorage.getItem('washi_tasks');
-      const storedSettings = localStorage.getItem('washi_settings');
-      const storedRole = localStorage.getItem('washi_role');
+    const loadData = async () => {
+      try {
+        const storedRole = localStorage.getItem('washi_role');
+        if (storedRole) setUserRole(storedRole as 'admin' | 'cashier');
 
-      // Detect old skincare/cosmetics data and force-reset to fashion
-      let shouldMigrate = false;
-      if (storedSettings) {
-        try {
-          const parsed = JSON.parse(storedSettings);
-          if (parsed.categories?.includes('سيروم') || parsed.categories?.includes('كريم')) {
-            shouldMigrate = true;
-          }
-        } catch (_) {}
-      }
+        const [
+          { data: prodData },
+          { data: ordData },
+          { data: salData },
+          { data: expData },
+          { data: movData },
+          { data: repData },
+          { data: tskData },
+          { data: setData }
+        ] = await Promise.all([
+          supabase.from('products').select('*').order('created_at', { ascending: false }),
+          supabase.from('orders').select('*').order('created_at', { ascending: false }),
+          supabase.from('sales').select('*').order('created_at', { ascending: false }),
+          supabase.from('expenses').select('*').order('created_at', { ascending: false }),
+          supabase.from('inventory_movements').select('*').order('created_at', { ascending: false }),
+          supabase.from('daily_reports').select('*').order('date', { ascending: false }),
+          supabase.from('daily_tasks').select('*').order('created_at', { ascending: false }),
+          supabase.from('system_settings').select('*').limit(1)
+        ]);
 
-      if (shouldMigrate) {
-        localStorage.clear();
-        setProducts(INITIAL_PRODUCTS);
-        setOrders(INITIAL_ORDERS);
-        setSales(INITIAL_SALES);
-        setExpenses(INITIAL_EXPENSES);
-        setMovements(INITIAL_MOVEMENTS);
-        setReports(INITIAL_REPORTS);
-        setTasks(INITIAL_TASKS);
-        setSettings(DEFAULT_SETTINGS);
-      } else {
-        if (storedProducts) setProducts(JSON.parse(storedProducts));
-        else setProducts(INITIAL_PRODUCTS);
-
-        if (storedOrders) setOrders(JSON.parse(storedOrders));
-        else setOrders(INITIAL_ORDERS);
-
-        if (storedSales) setSales(JSON.parse(storedSales));
-        else setSales(INITIAL_SALES);
-
-        if (storedExpenses) setExpenses(JSON.parse(storedExpenses));
-        else setExpenses(INITIAL_EXPENSES);
-
-        if (storedMovements) setMovements(JSON.parse(storedMovements));
-        else setMovements(INITIAL_MOVEMENTS);
-
-        if (storedReports) setReports(JSON.parse(storedReports));
-        else setReports(INITIAL_REPORTS);
-
-        if (storedTasks) setTasks(JSON.parse(storedTasks));
-        else setTasks(INITIAL_TASKS);
-
-        if (storedSettings) {
-          const parsedSettings = JSON.parse(storedSettings);
-          // Auto-migrate old dummy booth name
-          if (parsedSettings.boothName === 'وشى للأزياء - الرياض بارك') {
-            parsedSettings.boothName = 'وشى للأزياء';
-          }
-          setSettings({ ...DEFAULT_SETTINGS, ...parsedSettings });
+        if (prodData) setProducts(toCamelCaseObj(prodData));
+        if (ordData) setOrders(toCamelCaseObj(ordData));
+        if (salData) setSales(toCamelCaseObj(salData));
+        if (expData) setExpenses(toCamelCaseObj(expData));
+        if (movData) setMovements(toCamelCaseObj(movData));
+        if (repData) setReports(toCamelCaseObj(repData));
+        if (tskData) setTasks(toCamelCaseObj(tskData));
+        
+        if (setData && setData.length > 0) {
+          setSettings(toCamelCaseObj(setData[0]));
         } else {
+          // Initialize settings if empty
+          await supabase.from('system_settings').insert(toSnakeCaseObj({ id: 'settings_1', ...DEFAULT_SETTINGS }));
           setSettings(DEFAULT_SETTINGS);
         }
 
-        if (storedRole) setUserRole(storedRole as 'admin' | 'cashier');
+      } catch (e) {
+        console.error('Error loading data from Supabase:', e);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Error loading washi data from localStorage:', e);
-      // Fallbacks
-      setProducts(INITIAL_PRODUCTS);
-      setOrders(INITIAL_ORDERS);
-      setSales(INITIAL_SALES);
-      setExpenses(INITIAL_EXPENSES);
-      setMovements(INITIAL_MOVEMENTS);
-      setReports(INITIAL_REPORTS);
-      setTasks(INITIAL_TASKS);
-      setSettings(DEFAULT_SETTINGS);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    loadData();
+
+    // Supabase Realtime Subscription
+    const channel = supabase.channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        const table = payload.table;
+        const event = payload.eventType;
+        const newRec = payload.new ? toCamelCaseObj(payload.new) : null;
+        const oldRec = payload.old ? toCamelCaseObj(payload.old) : null;
+
+        const handleRealtimeList = (setFn: React.Dispatch<React.SetStateAction<any[]>>) => {
+          if (event === 'INSERT') {
+            setFn(prev => prev.some((i: any) => i.id === newRec.id) ? prev : [newRec, ...prev]);
+          } else if (event === 'UPDATE') {
+            setFn(prev => prev.map((i: any) => i.id === newRec.id ? newRec : i));
+          } else if (event === 'DELETE') {
+            setFn(prev => prev.filter((i: any) => i.id !== oldRec.id));
+          }
+        };
+
+        switch (table) {
+          case 'products': handleRealtimeList(setProducts); break;
+          case 'orders': handleRealtimeList(setOrders); break;
+          case 'sales': handleRealtimeList(setSales); break;
+          case 'expenses': handleRealtimeList(setExpenses); break;
+          case 'inventory_movements': handleRealtimeList(setMovements); break;
+          case 'daily_reports': handleRealtimeList(setReports); break;
+          case 'daily_tasks': handleRealtimeList(setTasks); break;
+          case 'system_settings':
+            if (event === 'UPDATE' && newRec) setSettings(newRec);
+            break;
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // Save to localStorage when state changes
   useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_products', JSON.stringify(products));
-  }, [products, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_orders', JSON.stringify(orders));
-  }, [orders, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_sales', JSON.stringify(sales));
-  }, [sales, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_expenses', JSON.stringify(expenses));
-  }, [expenses, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_movements', JSON.stringify(movements));
-  }, [movements, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_reports', JSON.stringify(reports));
-  }, [reports, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_tasks', JSON.stringify(tasks));
-  }, [tasks, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    localStorage.setItem('washi_settings', JSON.stringify(settings));
-  }, [settings, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
     if (userRole) {
       localStorage.setItem('washi_role', userRole);
     } else {
       localStorage.removeItem('washi_role');
     }
-  }, [userRole, isLoading]);
+  }, [userRole]);
 
-  // Reset helper
-  const resetData = () => {
-    setProducts(INITIAL_PRODUCTS);
-    setOrders(INITIAL_ORDERS);
-    setSales(INITIAL_SALES);
-    setExpenses(INITIAL_EXPENSES);
-    setMovements(INITIAL_MOVEMENTS);
-    setReports(INITIAL_REPORTS);
-    setTasks(INITIAL_TASKS);
-    setSettings(DEFAULT_SETTINGS);
+  const resetData = async () => {
+    if (!confirm('هل أنت متأكد من تصفير جميع البيانات السحابية؟')) return;
+    
+    // Simple way to clear tables for demo purposes (Dangerous in production)
+    await Promise.all([
+      supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('sales').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('inventory_movements').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('daily_reports').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('daily_tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    ]);
+    
+    setProducts([]);
+    setOrders([]);
+    setSales([]);
+    setExpenses([]);
+    setMovements([]);
+    setReports([]);
+    setTasks([]);
     setActivePage('dashboard');
   };
 
@@ -240,318 +211,258 @@ export function WashiProvider({ children }: { children: ReactNode }) {
   };
 
   // --- Products ---
-  const addProduct = (newProduct: Omit<Product, 'id'>) => {
-    const id = `prod-${Date.now()}`;
+  const addProduct = async (newProduct: Omit<Product, 'id'>) => {
+    const id = generateUUID();
     const product: Product = { ...newProduct, id };
+    
     setProducts((prev) => [product, ...prev]);
+    const { error } = await supabase.from('products').insert(toSnakeCaseObj(product));
+    if (error) console.error("Error inserting product:", error);
 
-    // Log movement if starting quantity is > 0
     if (product.quantity > 0) {
       addMovement({
         productId: id,
         type: 'إضافة مخزون',
         quantity: product.quantity,
         direction: '➕',
-        handler: settings.cashierName || 'المشرف',
-        notes: 'الكمية الافتتاحية عند تسجيل المنتج الجديد',
+        handler: 'System',
+        notes: 'الرصيد الافتتاحي'
       });
     }
   };
 
-  const editProduct = (id: string, updatedFields: Partial<Product>) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedFields } : p))
-    );
+  const editProduct = async (id: string, productUpdates: Partial<Product>) => {
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...productUpdates } : p)));
+    const { error } = await supabase.from('products').update(toSnakeCaseObj(productUpdates)).eq('id', id);
+    if (error) console.error("Error updating product:", error);
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) console.error("Error deleting product:", error);
   };
 
-  const adjustProductStock = (
-    id: string,
-    amount: number,
-    type: 'إضافة مخزون' | 'مرتجع' | 'تلف' | 'تعديل يدوي',
-    notes: string,
-    handler: string
-  ) => {
-    if (amount === 0) return;
-    const direction = (type === 'إضافة مخزون' || type === 'مرتجع') ? '➕' : '➖';
+  const adjustProductStock = async (id: string, amount: number, type: 'إضافة مخزون' | 'بيع' | 'مرتجع' | 'تلف' | 'تعديل يدوي', notes: string, handler: string) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
     
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const finalQty = direction === '➕' ? p.quantity + amount : Math.max(0, p.quantity - amount);
-          return { ...p, quantity: finalQty };
-        }
-        return p;
-      })
-    );
+    const direction = amount > 0 ? '➕' : '➖';
+    const newQuantity = product.quantity + amount;
 
+    // 1. Optimistic Update Product
+    editProduct(id, { quantity: newQuantity });
+
+    // 2. Add Movement
     addMovement({
       productId: id,
       type,
-      quantity: amount,
+      quantity: Math.abs(amount),
       direction,
       handler,
-      notes,
+      notes
     });
   };
 
   // --- Orders ---
-  const addOrder = (newOrder: Omit<Order, 'id' | 'orderDate' | 'addedToSales' | 'totalAmount'>) => {
-    // Generate Order ID like #0005
-    const lastNum = orders.length > 0 
-      ? parseInt(orders[0].id.replace('#', ''), 10) || orders.length 
-      : 0;
-    const nextNum = Math.max(lastNum + 1, orders.length + 1);
-    const id = `#${String(nextNum).padStart(4, '0')}`;
+  const addOrder = (newOrder: Omit<Order, 'id' | 'orderDate' | 'addedToSales' | 'totalAmount'>): Order => {
+    const id = generateUUID();
     
-    // Calculate total amount
-    let total = 0;
-    newOrder.products.forEach((pid) => {
-      const prod = products.find((p) => p.id === pid);
-      if (prod) total += prod.price;
+    let totalAmount = 0;
+    newOrder.products.forEach(pid => {
+      const p = products.find(prod => prod.id === pid);
+      if (p) totalAmount += p.price;
     });
 
     const order: Order = {
       ...newOrder,
       id,
-      totalAmount: total,
       orderDate: new Date().toISOString(),
       addedToSales: false,
+      totalAmount
     };
 
     setOrders((prev) => [order, ...prev]);
+    supabase.from('orders').insert(toSnakeCaseObj(order)).then(({ error }) => {
+      if (error) console.error("Error inserting order:", error);
+    });
 
-    // If order starts as Completed (مكتمل), trigger sales and inventory updates!
-    if (order.orderStatus === 'مكتمل') {
-      // Run completing logic with a slight microtask defer to let states align
-      setTimeout(() => {
-        completeOrder(id, settings.cashierName || 'الكاشير');
-      }, 50);
-    }
+    // Reduce stock
+    order.products.forEach(pid => {
+      adjustProductStock(pid, -1, 'بيع', `محجوز لطلب رقم ${id.substring(0,6)}`, newOrder.customerName || 'النظام');
+    });
 
     return order;
   };
 
-  const editOrder = (id: string, updatedFields: Partial<Order>) => {
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id === id) {
-          const updated = { ...o, ...updatedFields };
-          // Recalculate total if products updated
-          if (updatedFields.products) {
-            let total = 0;
-            updatedFields.products.forEach((pid) => {
-              const prod = products.find((p) => p.id === pid);
-              if (prod) total += prod.price;
-            });
-            updated.totalAmount = total;
-          }
-          return updated;
-        }
-        return o;
-      })
-    );
+  const editOrder = async (id: string, orderUpdates: Partial<Order>) => {
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...orderUpdates } : o)));
+    const { error } = await supabase.from('orders').update(toSnakeCaseObj(orderUpdates)).eq('id', id);
+    if (error) console.error("Error updating order:", error);
   };
 
-  const deleteOrder = (id: string) => {
+  const deleteOrder = async (id: string) => {
+    const order = orders.find(o => o.id === id);
     setOrders((prev) => prev.filter((o) => o.id !== id));
-  };
-
-  const completeOrder = (orderId: string, handler: string) => {
-    // Find order
-    const order = orders.find((o) => o.id === orderId);
-    if (!order) return;
-    if (order.addedToSales) {
-      // Already processed
-      if (order.orderStatus !== 'مكتمل') {
-        editOrder(orderId, { orderStatus: 'مكتمل', paymentStatus: 'مدفوع' });
-      }
-      return;
+    
+    // Return stock if it wasn't sold yet
+    if (order && !order.addedToSales) {
+      order.products.forEach(pid => {
+        adjustProductStock(pid, 1, 'مرتجع', `إلغاء طلب رقم ${id.substring(0,6)}`, 'النظام');
+      });
     }
 
-    // 1. Calculate cost
-    let estimatedCost = 0;
-    order.products.forEach((pid) => {
-      const prod = products.find((p) => p.id === pid);
-      if (prod) estimatedCost += prod.cost;
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) console.error("Error deleting order:", error);
+  };
+
+  const completeOrder = async (id: string, handler: string) => {
+    const order = orders.find(o => o.id === id);
+    if (!order || order.addedToSales) return;
+
+    let totalCost = 0;
+    order.products.forEach(pid => {
+      const p = products.find(prod => prod.id === pid);
+      if (p) totalCost += p.cost;
     });
 
-    // 2. Generate Sale ID like S0003
-    const lastSaleNum = sales.length > 0
-      ? parseInt(sales[0].id.replace('S', ''), 10) || sales.length
-      : 0;
-    const nextSaleNum = Math.max(lastSaleNum + 1, sales.length + 1);
-    const saleId = `S${String(nextSaleNum).padStart(4, '0')}`;
-
-    // Get item detail strings
-    const itemDetails = order.products
-      .map((pid) => products.find((p) => p.id === pid)?.name || 'منتج غير معروف')
-      .join(' + ');
-
-    // 3. Create Sale record
-    const newSale: Sale = {
-      id: saleId,
+    addSale({
       orderId: order.id,
       products: order.products,
       amount: order.totalAmount,
-      estimatedCost,
+      estimatedCost: totalCost,
       paymentMethod: order.paymentMethod,
-      source: order.paymentStatus === 'مدفوع مسبقاً' ? 'مدفوع مسبقاً' : 'من طلب',
-      customerName: order.customerName || 'عميل بوث',
-      details: itemDetails || 'مبيعات قطع الأزياء',
-      timestamp: new Date().toISOString(),
-      notes: `تم تحويل الطلب المكتمل ${order.id} مبيعات تلقائية.`,
-    };
-
-    setSales((prev) => [newSale, ...prev]);
-
-    // 4. Update products quantities and record inventory movements
-    order.products.forEach((pid) => {
-      setProducts((prevProds) =>
-        prevProds.map((p) => {
-          if (p.id === pid) {
-            return { ...p, quantity: Math.max(0, p.quantity - 1) };
-          }
-          return p;
-        })
-      );
-
-      // Add movement log
-      addMovement({
-        productId: pid,
-        type: 'بيع',
-        quantity: 1,
-        direction: '➖',
-        orderId: order.id,
-        saleId: saleId,
-        handler,
-        notes: `عملية مبيعات تلقائية ناتجة عن إكمال الطلب ${order.id}`,
-      });
+      source: 'من طلب',
+      customerName: order.customerName,
+      details: `إتمام طلب ${order.id.substring(0,6)}`,
+      notes: ''
     });
 
-    // 5. Update Order status to Completed and check "addedToSales"
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              orderStatus: 'مكتمل',
-              paymentStatus: o.paymentStatus === 'غير مدفوع' ? 'مدفوع' : o.paymentStatus,
-              addedToSales: true,
-              salesLinkedId: saleId,
-            }
-          : o
-      )
-    );
+    editOrder(id, { 
+      orderStatus: 'مكتمل',
+      paymentStatus: 'مدفوع',
+      addedToSales: true 
+    });
   };
 
   // --- Sales ---
-  const addSale = (newSale: Omit<Sale, 'id' | 'timestamp'>) => {
-    const lastSaleNum = sales.length > 0
-      ? parseInt(sales[0].id.replace('S', ''), 10) || sales.length
-      : 0;
-    const nextSaleNum = Math.max(lastSaleNum + 1, sales.length + 1);
-    const id = `S${String(nextSaleNum).padStart(4, '0')}`;
-
+  const addSale = async (newSale: Omit<Sale, 'id' | 'timestamp'>) => {
+    const id = generateUUID();
     const sale: Sale = {
       ...newSale,
       id,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     };
 
     setSales((prev) => [sale, ...prev]);
-
-    // Deduct stock for manual sales as well!
-    sale.products.forEach((pid) => {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === pid ? { ...p, quantity: Math.max(0, p.quantity - 1) } : p))
-      );
-
-      addMovement({
-        productId: pid,
-        type: 'بيع',
-        quantity: 1,
-        direction: '➖',
-        saleId: id,
-        handler: settings.cashierName || 'كاشير البوث',
-        notes: 'مبيعات كاشير مباشرة وسريعة',
-      });
-    });
+    const { error } = await supabase.from('sales').insert(toSnakeCaseObj(sale));
+    if (error) console.error("Error inserting sale:", error);
   };
 
-  const deleteSale = (id: string) => {
+  const deleteSale = async (id: string) => {
     setSales((prev) => prev.filter((s) => s.id !== id));
+    const { error } = await supabase.from('sales').delete().eq('id', id);
+    if (error) console.error("Error deleting sale:", error);
   };
 
   // --- Expenses ---
-  const addExpense = (newExpense: Omit<Expense, 'id'>) => {
-    const id = `exp-${Date.now()}`;
+  const addExpense = async (newExpense: Omit<Expense, 'id'>) => {
+    const id = generateUUID();
     const expense: Expense = { ...newExpense, id };
+    
     setExpenses((prev) => [expense, ...prev]);
+    const { error } = await supabase.from('expenses').insert(toSnakeCaseObj(expense));
+    if (error) console.error("Error inserting expense:", error);
   };
 
-  const editExpense = (id: string, updatedFields: Partial<Expense>) => {
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updatedFields } : e))
-    );
+  const editExpense = async (id: string, expenseUpdates: Partial<Expense>) => {
+    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...expenseUpdates } : e)));
+    const { error } = await supabase.from('expenses').update(toSnakeCaseObj(expenseUpdates)).eq('id', id);
+    if (error) console.error("Error updating expense:", error);
   };
 
-  const deleteExpense = (id: string) => {
+  const deleteExpense = async (id: string) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (error) console.error("Error deleting expense:", error);
   };
 
-  // --- Inventory Movements ---
-  const addMovement = (newMovement: Omit<InventoryMovement, 'id' | 'date'>) => {
-    const id = `INV-${String(movements.length + 1).padStart(3, '0')}`;
+  // --- Movements ---
+  const addMovement = async (newMovement: Omit<InventoryMovement, 'id' | 'date'>) => {
+    const id = generateUUID();
     const movement: InventoryMovement = {
       ...newMovement,
       id,
-      date: new Date().toISOString(),
+      date: new Date().toISOString()
     };
+    
     setMovements((prev) => [movement, ...prev]);
+    const { error } = await supabase.from('inventory_movements').insert(toSnakeCaseObj(movement));
+    if (error) console.error("Error inserting movement:", error);
   };
 
-  // --- Daily Tasks ---
-  const addTask = (newTask: Omit<DailyTask, 'id' | 'date'>) => {
-    const id = `task-${Date.now()}`;
+  // --- Tasks ---
+  const addTask = async (newTask: Omit<DailyTask, 'id' | 'date'>) => {
+    const id = generateUUID();
     const task: DailyTask = {
       ...newTask,
       id,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split('T')[0]
     };
+    
     setTasks((prev) => [task, ...prev]);
+    const { error } = await supabase.from('daily_tasks').insert(toSnakeCaseObj(task));
+    if (error) console.error("Error inserting task:", error);
   };
 
-  const editTask = (id: string, updatedFields: Partial<DailyTask>) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updatedFields } : t))
-    );
+  const editTask = async (id: string, taskUpdates: Partial<DailyTask>) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...taskUpdates } : t)));
+    const { error } = await supabase.from('daily_tasks').update(toSnakeCaseObj(taskUpdates)).eq('id', id);
+    if (error) console.error("Error updating task:", error);
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    const { error } = await supabase.from('daily_tasks').delete().eq('id', id);
+    if (error) console.error("Error deleting task:", error);
   };
 
-  // --- Daily Reports ---
-  const addReport = (newReport: DailyReport) => {
-    setReports((prev) => {
-      const filtered = prev.filter((r) => r.id !== newReport.id);
-      return [newReport, ...filtered];
-    });
+  // --- Reports ---
+  const addReport = async (report: DailyReport) => {
+    // Check if exists
+    const exists = reports.find(r => r.id === report.id);
+    if (exists) {
+      setReports((prev) => prev.map((r) => (r.id === report.id ? report : r)));
+      const { error } = await supabase.from('daily_reports').update(toSnakeCaseObj(report)).eq('id', report.id);
+      if (error) console.error("Error updating report:", error);
+    } else {
+      setReports((prev) => [report, ...prev]);
+      const { error } = await supabase.from('daily_reports').insert(toSnakeCaseObj(report));
+      if (error) console.error("Error inserting report:", error);
+    }
   };
 
-  const toggleReportClosed = (id: string) => {
-    setReports((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isClosed: !r.isClosed } : r))
-    );
+  const toggleReportClosed = async (id: string) => {
+    const report = reports.find(r => r.id === id);
+    if (!report) return;
+    const isClosed = !report.isClosed;
+    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, isClosed } : r)));
+    
+    const { error } = await supabase.from('daily_reports').update(toSnakeCaseObj({ isClosed })).eq('id', id);
+    if (error) console.error("Error updating report status:", error);
   };
 
   // --- Settings ---
-  const updateSettings = (updatedSettings: Partial<SystemSettings>) => {
-    setSettings((prev) => ({ ...prev, ...updatedSettings }));
+  const updateSettings = async (newSettings: Partial<SystemSettings>) => {
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+    
+    // Update the single row (id = 'settings_1')
+    const { error } = await supabase.from('system_settings').update(toSnakeCaseObj(updated)).eq('id', 'settings_1');
+    if (error) {
+       // if it doesn't exist, try to insert it
+       await supabase.from('system_settings').insert(toSnakeCaseObj({ id: 'settings_1', ...updated }));
+    }
   };
 
   return (
@@ -591,7 +502,7 @@ export function WashiProvider({ children }: { children: ReactNode }) {
         addReport,
         toggleReportClosed,
         updateSettings,
-        resetData,
+        resetData
       }}
     >
       {children}
