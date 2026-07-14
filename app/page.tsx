@@ -125,7 +125,7 @@ export default function Page() {
         {/* Mobile Responsive Header */}
         <header className="md:hidden bg-[var(--color-wusha-cotton)] border-b border-[var(--color-wusha-pale-gold)] px-4 py-3 sticky top-0 z-40 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🧴</span>
+            <img src="/logo.png" alt="Washa Logo" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <div>
               <h2 className="text-xs font-black text-[var(--color-wusha-ink)] leading-none">{settings.boothName || 'وشى بالبوث'}</h2>
               <p className="text-[9px] text-[var(--color-wusha-stone)] font-bold mt-1">{getPageTitle()}</p>

@@ -9,5 +9,11 @@
       "firebase-debug.*.log",
       "functions"
     ]
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "me-central2",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

@@ -82,11 +82,11 @@ export default function DashboardView() {
       {/* Welcome Callout Header */}
       <div className="bg-[var(--color-wusha-ivory)] border border-[var(--color-wusha-cotton)] rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
         <div className="flex gap-4 items-start">
-          <span className="text-3xl bg-[var(--color-wusha-cotton)] p-2.5 rounded-2xl border border-[var(--color-wusha-pale-gold)] shrink-0">🧴</span>
+          <img src="/logo.png" alt="Washa Logo" className="w-14 h-14 object-contain bg-white p-2 rounded-2xl border border-[var(--color-wusha-pale-gold)] shrink-0 shadow-sm" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <div>
-            <h2 className="text-lg font-bold text-[var(--color-wusha-ink)]">وشى — تشغيل البوث اليومي</h2>
+            <h2 className="text-lg font-bold text-[var(--color-wusha-ink)]">لوحة تحكم وشى</h2>
             <p className="text-sm text-[var(--color-wusha-stone)] mt-1">
-              أهلاً بك في نظام تشغيل بوث براند <strong>{settings.boothName}</strong> بمدينة {settings.eventCity}. تابع المبيعات، الطلبات، المخزون وأنجز إغلاق اليوم بكفاءة.
+              أهلاً بك في نظام تشغيل بوث براند <strong>{settings.boothName}</strong>. تابع المبيعات، الطلبات، المخزون وأنجز إغلاق اليوم بكفاءة.
             </p>
           </div>
         </div>

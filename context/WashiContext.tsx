@@ -141,8 +141,16 @@ export function WashiProvider({ children }: { children: ReactNode }) {
         if (storedTasks) setTasks(JSON.parse(storedTasks));
         else setTasks(INITIAL_TASKS);
 
-        if (storedSettings) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(storedSettings) });
-        else setSettings(DEFAULT_SETTINGS);
+        if (storedSettings) {
+          const parsedSettings = JSON.parse(storedSettings);
+          // Auto-migrate old dummy booth name
+          if (parsedSettings.boothName === 'وشى للأزياء - الرياض بارك') {
+            parsedSettings.boothName = 'وشى للأزياء';
+          }
+          setSettings({ ...DEFAULT_SETTINGS, ...parsedSettings });
+        } else {
+          setSettings(DEFAULT_SETTINGS);
+        }
 
         if (storedRole) setUserRole(storedRole as 'admin' | 'cashier');
       }

@@ -161,7 +161,7 @@ export default function LoginView() {
               <div>
                 <input
                   type="text"
-                  placeholder="اسم الكاشير (مثال: هشام)"
+                  placeholder="الاسم الأول للكاشير"
                   value={cashierName}
                   onChange={(e) => setCashierName(e.target.value)}
                   className="wusha-input text-center text-lg py-4"
