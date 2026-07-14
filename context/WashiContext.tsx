@@ -121,7 +121,7 @@ export function WashiProvider({ children }: { children: ReactNode }) {
           setSettings(toCamelCaseObj(setData[0]));
         } else {
           // Initialize settings if empty
-          await supabase.from('system_settings').insert(toSnakeCaseObj({ id: 'settings_1', ...DEFAULT_SETTINGS }));
+          await supabase.from('system_settings').insert(toSnakeCaseObj({ id: '00000000-0000-0000-0000-000000000000', ...DEFAULT_SETTINGS }));
           setSettings(DEFAULT_SETTINGS);
         }
 
@@ -458,10 +458,10 @@ export function WashiProvider({ children }: { children: ReactNode }) {
     setSettings(updated);
     
     // Update the single row (id = 'settings_1')
-    const { error } = await supabase.from('system_settings').update(toSnakeCaseObj(updated)).eq('id', 'settings_1');
+    const { error } = await supabase.from('system_settings').update(toSnakeCaseObj(updated)).eq('id', '00000000-0000-0000-0000-000000000000');
     if (error) {
        // if it doesn't exist, try to insert it
-       await supabase.from('system_settings').insert(toSnakeCaseObj({ id: 'settings_1', ...updated }));
+       await supabase.from('system_settings').insert(toSnakeCaseObj({ id: '00000000-0000-0000-0000-000000000000', ...updated }));
     }
   };
 
