@@ -142,12 +142,12 @@ ALTER TABLE public.daily_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
--- Create default policies allowing authenticated users to read/write (Adjust according to your auth logic)
-CREATE POLICY "Allow authenticated full access" ON public.products FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.orders FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.sales FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.expenses FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.inventory_movements FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.daily_reports FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.daily_tasks FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated full access" ON public.system_settings FOR ALL USING (auth.role() = 'authenticated');
+-- Create default policies allowing public access to read/write since we use PIN auth instead of Supabase Auth
+CREATE POLICY "Allow public full access" ON public.products FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.orders FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.sales FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.expenses FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.inventory_movements FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.daily_reports FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.daily_tasks FOR ALL USING (true);
+CREATE POLICY "Allow public full access" ON public.system_settings FOR ALL USING (true);
